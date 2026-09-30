@@ -1,0 +1,6 @@
+{
+  "name": "ImpactLens - AI Media Intelligence for NGOs & Sustainability",
+  "description": "AI-powered media intelligence platform turning raw field photos and videos into searchable evidence, measurable impact, before-after proof, and compelling visual stories with complete trust.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
