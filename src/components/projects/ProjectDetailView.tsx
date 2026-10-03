@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -17,9 +17,10 @@ import {
   Clock,
   CheckCircle2,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Building2
 } from 'lucide-react';
-import { Project, MediaAsset, BeforeAfterPair } from '../../types';
+import { Project, MediaAsset, BeforeAfterPair, UserProfile } from '../../types';
 import { calculateEvidenceScore } from '../../services/evidenceScore';
 import { downloadProjectPdf, exportElementToPdfWithHtml2Canvas } from '../../services/pdfExportService';
 import { EvidenceScoreRadar } from '../dashboard/EvidenceScoreRadar';
@@ -27,15 +28,19 @@ import { MediaGrid } from '../media/MediaGrid';
 import { ProjectPdfExportModal } from './ProjectPdfExportModal';
 import { ProjectInteractiveTimeline } from './ProjectInteractiveTimeline';
 import { EvidenceAiInsightsSidebar } from './EvidenceAiInsightsSidebar';
+import { ProjectTrustStampAuditLog } from './ProjectTrustStampAuditLog';
+import { ProjectMilestoneRoadmap } from './ProjectMilestoneRoadmap';
 
 interface ProjectDetailViewProps {
   project: Project;
   assets: MediaAsset[];
   pairs: BeforeAfterPair[];
+  currentUser?: UserProfile;
   onBack: () => void;
   onOpenUpload: (projectId: string, suggestedStage?: string) => void;
   onOpenBeforeAfter: (pairId?: string) => void;
   onGenerateReport: (projectId: string) => void;
+  onOpenStakeholderView?: (projectId: string) => void;
   onUpdateAssets?: (updatedAssets: MediaAsset[]) => void;
 }
 
@@ -43,20 +48,34 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   project,
   assets,
   pairs,
+  currentUser,
   onBack,
   onOpenUpload,
   onOpenBeforeAfter,
   onGenerateReport,
+  onOpenStakeholderView,
   onUpdateAssets,
 }) => {
   const [showPdfExportModal, setShowPdfExportModal] = useState(false);
   const [showAiInsights, setShowAiInsights] = useState(true);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [activeSection, setActiveSection] = useState<'catalog' | 'audit'>('catalog');
+  const [selectedStageFilter, setSelectedStageFilter] = useState<string | undefined>(undefined);
   const reportCaptureRef = useRef<HTMLDivElement>(null);
 
   const projectAssets = assets.filter((a) => a.projectId === project.id);
   const projectPairs = pairs.filter((p) => p.projectId === project.id);
   const assetMap = new Map(assets.map((a) => [a.id, a]));
+
+  const displayedProjectAssets = useMemo(() => {
+    if (!selectedStageFilter) return projectAssets;
+    return projectAssets.filter((a) => a.stage === selectedStageFilter);
+  }, [projectAssets, selectedStageFilter]);
+
+  const projectAuditCount = projectAssets.reduce(
+    (acc, a) => acc + (a.trustPassport?.auditChain?.length || 1), 
+    0
+  );
 
   const scoreBreakdown = calculateEvidenceScore(project, assets, pairs);
 
@@ -100,6 +119,20 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </button>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Trust-Stamp Audit Log Toggle Button */}
+          <button
+            onClick={() => setActiveSection(activeSection === 'audit' ? 'catalog' : 'audit')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors border shadow-sm ${
+              activeSection === 'audit'
+                ? 'bg-purple-950/80 text-purple-300 border-purple-600/80 shadow-purple-950/40'
+                : 'bg-neutral-900 text-neutral-300 border-neutral-800 hover:bg-neutral-800'
+            }`}
+            title="Inspect trust-stamp verification history and compliance log"
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-purple-400" />
+            <span>Trust Audit Log ({projectAuditCount})</span>
+          </button>
+
           {/* AI Evidence Insights Toggle Button */}
           <button
             onClick={() => setShowAiInsights(!showAiInsights)}
@@ -153,6 +186,17 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <FileText className="h-3.5 w-3.5 text-emerald-400" />
             <span>Impact Story Dossier</span>
           </button>
+
+          {onOpenStakeholderView && (
+            <button
+              onClick={() => onOpenStakeholderView(project.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-300 bg-emerald-950/60 border border-emerald-800/80 hover:bg-emerald-900/60 rounded-lg transition-colors shadow-sm"
+              title="Open simplified visual milestone view designed for donors and external stakeholders"
+            >
+              <Building2 className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Stakeholder View</span>
+            </button>
+          )}
 
           <button
             onClick={() => onOpenUpload(project.id)}
@@ -243,6 +287,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             onTakeAction={() => onOpenUpload(project.id)}
           />
 
+          {/* Lifecycle Milestone Roadmap (Start, Execution, Completion) */}
+          <ProjectMilestoneRoadmap
+            project={project}
+            assets={projectAssets}
+            selectedStage={selectedStageFilter}
+            onSelectStage={(stage) => setSelectedStageFilter(prev => prev === stage ? undefined : stage)}
+          />
+
           {/* Interactive Horizontal Scrollable Timeline */}
           <ProjectInteractiveTimeline
             assets={projectAssets}
@@ -269,24 +321,74 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         )}
       </div>
 
-      {/* Project Media Evidence Gallery */}
-      <div className="space-y-4 pt-2">
-        <div className="flex items-center justify-between">
+      {/* Project Media Evidence Gallery & Trust-Stamp Compliance Audit View */}
+      <div className="space-y-4 pt-4 border-t border-neutral-800/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-neutral-800">
           <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-emerald-400" />
-            <h3 className="text-sm font-semibold text-neutral-100">
-              Photographic & Sensor Evidence Catalog ({projectAssets.length} Assets)
-            </h3>
+            <button
+              onClick={() => setActiveSection('catalog')}
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors ${
+                activeSection === 'catalog'
+                  ? 'bg-emerald-400 text-neutral-950 shadow-sm'
+                  : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900 border border-neutral-800/80'
+              }`}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Evidence Catalog ({projectAssets.length} Assets)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('audit')}
+              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors ${
+                activeSection === 'audit'
+                  ? 'bg-purple-500 text-neutral-950 shadow-sm'
+                  : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900 border border-neutral-800/80'
+              }`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>Trust-Stamp Audit Log ({projectAuditCount} Events)</span>
+            </button>
           </div>
+
+          <span className="text-[11px] font-mono text-neutral-500 hidden sm:inline-block">
+            {activeSection === 'catalog' 
+              ? 'Viewing visual evidence catalog & Cloudinary AI tags'
+              : 'Viewing immutable verification chain & signer identities'}
+          </span>
         </div>
 
-        <MediaGrid
-          assets={projectAssets}
-          projects={[project]}
-          selectedProjectId={project.id}
-          onUpdateAssets={onUpdateAssets}
-          onCompareWithThis={() => onOpenBeforeAfter(projectPairs[0]?.id)}
-        />
+        {selectedStageFilter && (
+          <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-800/60 text-xs">
+            <span className="text-emerald-300 font-mono">
+              Roadmap Stage Active: <strong>{selectedStageFilter.toUpperCase()}</strong> ({displayedProjectAssets.length} Assets)
+            </span>
+            <button
+              onClick={() => setSelectedStageFilter(undefined)}
+              className="text-neutral-400 hover:text-neutral-200 underline font-mono text-[11px]"
+            >
+              Show All Lifecycle Phases
+            </button>
+          </div>
+        )}
+
+        {activeSection === 'catalog' ? (
+          <MediaGrid
+            assets={displayedProjectAssets}
+            projects={[project]}
+            selectedProjectId={project.id}
+            onUpdateAssets={onUpdateAssets}
+            onCompareWithThis={() => onOpenBeforeAfter(projectPairs[0]?.id)}
+          />
+        ) : (
+          <ProjectTrustStampAuditLog
+            project={project}
+            assets={assets}
+            currentUser={currentUser}
+            onSelectAsset={(asset) => {
+              setActiveSection('catalog');
+            }}
+          />
+        )}
       </div>
 
       {/* PDF Export Modal */}
@@ -325,7 +427,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 </span>
               </div>
               <p className="text-xs text-neutral-400">
-                Code Cubicle 6.0 · Problem Statement 02 · Cloudinary Track Official Dossier
+                National Sustainability & Impact Verification Protocol · Official Institutional Dossier
               </p>
             </div>
 

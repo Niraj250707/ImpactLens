@@ -1,10 +1,10 @@
 import React from 'react';
-import { Camera, Plus, Sliders, ShieldCheck, LogOut } from 'lucide-react';
+import { Camera, Plus, Sliders, ShieldCheck, LogOut, Building2 } from 'lucide-react';
 import { UserProfile } from '../../types';
 
 interface NavbarProps {
-  activeTab: 'dashboard' | 'projects' | 'media' | 'beforeafter' | 'reports';
-  setActiveTab: (tab: 'dashboard' | 'projects' | 'media' | 'beforeafter' | 'reports') => void;
+  activeTab: 'dashboard' | 'projects' | 'media' | 'beforeafter' | 'reports' | 'stakeholder';
+  setActiveTab: (tab: 'dashboard' | 'projects' | 'media' | 'beforeafter' | 'reports' | 'stakeholder') => void;
   onOpenUpload: () => void;
   onOpenSettings: () => void;
   onLogout?: () => void;
@@ -98,6 +98,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Impact Stories
           </button>
+
+          <button
+            onClick={() => setActiveTab('stakeholder')}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-md flex items-center gap-1.5 ${
+              activeTab === 'stakeholder'
+                ? 'text-emerald-400 bg-emerald-500/10'
+                : 'text-neutral-400 hover:text-neutral-200'
+            }`}
+          >
+            <Building2 className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Stakeholder Portal</span>
+          </button>
         </nav>
 
         {/* Zone 3: 1-2 primary actions + Profile */}
@@ -179,6 +191,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           className={`px-2 py-1 ${activeTab === 'reports' ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}`}
         >
           Reports
+        </button>
+        <button
+          onClick={() => setActiveTab('stakeholder')}
+          className={`px-2 py-1 ${activeTab === 'stakeholder' ? 'text-emerald-400 font-semibold' : 'text-neutral-400'}`}
+        >
+          Stakeholders
         </button>
         {onLogout && (
           <button

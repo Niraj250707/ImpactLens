@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   X, 
   UploadCloud, 
@@ -9,10 +9,16 @@ import {
   Layers, 
   Tag, 
   MapPin, 
-  Loader2 
+  Loader2,
+  Check,
+  Plus,
+  AlertTriangle,
+  Compass,
+  Crosshair
 } from 'lucide-react';
 import { MediaAsset, MediaStage, Project, UserProfile } from '../../types';
 import { uploadFieldMedia } from '../../services/cloudinaryService';
+import { analyzeImageForUpload, AiImageAnalysisResult } from '../../services/imageAnalysisService';
 
 interface SmartUploadModalProps {
   projects: Project[];
@@ -43,16 +49,92 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({
   const [processingStep, setProcessingStep] = useState<string>('');
   const [processedAssets, setProcessedAssets] = useState<MediaAsset[]>([]);
 
+  // Automated AI Tagging Trigger State
+  const [isAnalyzingAi, setIsAnalyzingAi] = useState(false);
+  const [aiCategories, setAiCategories] = useState<string[]>([]);
+  const [aiSuggestedTags, setAiSuggestedTags] = useState<string[]>([]);
+  const [aiAnalysisStatus, setAiAnalysisStatus] = useState<string | null>(null);
+
+  // GPS Proximity & Location Integrity State
+  const [customLat, setCustomLat] = useState<number | null>(null);
+  const [customLng, setCustomLng] = useState<number | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeProject = projects.find((p) => p.id === selectedProjectId);
+
+  const effectiveLat = customLat ?? activeProject?.location.lat ?? 20.5937;
+  const effectiveLng = customLng ?? activeProject?.location.lng ?? 78.9629;
+
+  // Haversine distance from project site in kilometers
+  const distanceDeviationKm = useMemo(() => {
+    if (!activeProject) return 0;
+    const projectLat = activeProject.location.lat;
+    const projectLng = activeProject.location.lng;
+    const R = 6371; // Earth radius in km
+    const dLat = (effectiveLat - projectLat) * (Math.PI / 180);
+    const dLng = (effectiveLng - projectLng) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(projectLat * (Math.PI / 180)) *
+      Math.cos(effectiveLat * (Math.PI / 180)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c);
+  }, [effectiveLat, effectiveLng, activeProject]);
+
+  // Flag media if captured significantly outside project's designated site coordinates (> 25 km)
+  const isLocationDiscrepant = distanceDeviationKm > 25;
+
+  // Automated AI tagging trigger
+  const runAiTaggingTrigger = async (file: File) => {
+    setIsAnalyzingAi(true);
+    setAiAnalysisStatus('Analyzing visual content for infrastructure, community & environmental signals...');
+    try {
+      const result = await analyzeImageForUpload({
+        file,
+        projectName: activeProject?.title || '',
+        projectCategory: activeProject?.category || '',
+      });
+
+      setAiCategories(result.categories || []);
+      setAiSuggestedTags(result.tags || []);
+
+      // Auto-prepopulate tags if empty or merge
+      const existing = customTags
+        ? customTags.split(',').map(t => t.trim()).filter(Boolean)
+        : [];
+      const merged = Array.from(new Set([...existing, ...result.tags, ...result.categories]));
+      setCustomTags(merged.join(', '));
+
+      if (!title) {
+        setTitle(result.suggestedTitle);
+      }
+      if (!description) {
+        setDescription(result.suggestedDescription);
+      }
+
+      setAiAnalysisStatus(
+        `AI Analysis Complete: Classified as [${result.categories.join(' · ')}]. Pre-populated ${result.tags.length} verified tags.`
+      );
+    } catch (err) {
+      console.error('AI tagging trigger error:', err);
+      setAiAnalysisStatus(null);
+    } finally {
+      setIsAnalyzingAi(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
       setSelectedFiles((prev) => [...prev, ...filesArray]);
-      if (!title && filesArray.length === 1) {
-        setTitle(filesArray[0].name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+      if (filesArray.length > 0) {
+        if (!title && filesArray.length === 1) {
+          setTitle(filesArray[0].name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+        }
+        // Trigger automated AI image analysis on the first selected file
+        runAiTaggingTrigger(filesArray[0]);
       }
     }
   };
@@ -62,14 +144,32 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({
     if (e.dataTransfer.files) {
       const filesArray = Array.from(e.dataTransfer.files);
       setSelectedFiles((prev) => [...prev, ...filesArray]);
-      if (!title && filesArray.length === 1) {
-        setTitle(filesArray[0].name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+      if (filesArray.length > 0) {
+        if (!title && filesArray.length === 1) {
+          setTitle(filesArray[0].name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+        }
+        // Trigger automated AI image analysis
+        runAiTaggingTrigger(filesArray[0]);
       }
     }
   };
 
   const removeFile = (index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    if (selectedFiles.length <= 1) {
+      setAiCategories([]);
+      setAiSuggestedTags([]);
+      setAiAnalysisStatus(null);
+    }
+  };
+
+  const toggleTagChip = (tagToAdd: string) => {
+    const existing = customTags.split(',').map(t => t.trim()).filter(Boolean);
+    if (existing.includes(tagToAdd)) {
+      setCustomTags(existing.filter(t => t !== tagToAdd).join(', '));
+    } else {
+      setCustomTags([...existing, tagToAdd].join(', '));
+    }
   };
 
   const handleStartIngestion = async (e: React.FormEvent) => {
@@ -93,6 +193,11 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({
       setProcessingStep(`[${i + 1}/${selectedFiles.length}] Cloudinary AI scene & object classification...`);
       await new Promise((r) => setTimeout(r, 500));
 
+      if (isLocationDiscrepant) {
+        setProcessingStep(`[${i + 1}/${selectedFiles.length}] Geofence Discrepancy (${distanceDeviationKm}km outside perimeter). Appending 'Location Integrity Warning' to audit log...`);
+        await new Promise((r) => setTimeout(r, 450));
+      }
+
       setProcessingStep(`[${i + 1}/${selectedFiles.length}] Issuing immutable Trust Passport & geocoding...`);
 
       const asset = await uploadFieldMedia(file, selectedProjectId, {
@@ -102,10 +207,12 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({
         locationName: locationName || activeProject?.location.name || 'Field Sector',
         state: activeProject?.location.state || 'Local Region',
         country: activeProject?.location.country || 'India',
-        lat: activeProject?.location.lat || 20.5937,
-        lng: activeProject?.location.lng || 78.9629,
+        lat: effectiveLat,
+        lng: effectiveLng,
         tags: tagsArray,
         user: { name: currentUser.name, role: currentUser.role },
+        locationIntegrityWarning: isLocationDiscrepant,
+        locationDiscrepancyKm: isLocationDiscrepant ? distanceDeviationKm : 0,
       });
 
       results.push(asset);
@@ -171,9 +278,17 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({
                     <p className="font-medium text-neutral-200 truncate">{a.title}</p>
                     <p className="text-[10px] text-neutral-500 font-mono">Stage: {a.stage.toUpperCase()}</p>
                   </div>
-                  <span className="text-[10px] font-mono text-emerald-400 font-medium">
-                    SHA-256 Verified
-                  </span>
+                  <div className="text-right space-y-0.5">
+                    <span className="text-[10px] font-mono text-emerald-400 font-medium block">
+                      SHA-256 Verified
+                    </span>
+                    {a.locationIntegrityWarning && (
+                      <span className="text-[9px] font-mono text-amber-300 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-800 flex items-center gap-1 justify-end">
+                        <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
+                        <span>Location Integrity Warning ({a.locationDiscrepancyKm}km)</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -317,16 +432,209 @@ export const SmartUploadModal: React.FC<SmartUploadModalProps> = ({
               </div>
             </div>
 
-            {/* Custom tags */}
+            {/* GPS-Proximity & Location Integrity Verification Section */}
+            <div className={`p-3.5 rounded-xl border space-y-2.5 transition-colors ${
+              isLocationDiscrepant
+                ? 'border-amber-500/50 bg-amber-950/20'
+                : 'border-neutral-800 bg-neutral-900/40'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Compass className={`h-4 w-4 ${isLocationDiscrepant ? 'text-amber-400' : 'text-emerald-400'}`} />
+                  <span className="text-xs font-semibold text-neutral-100">
+                    GPS-Proximity & Geofence Integrity Check
+                  </span>
+                </div>
+
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold flex items-center gap-1 ${
+                  isLocationDiscrepant
+                    ? 'bg-amber-950 text-amber-300 border-amber-500/60'
+                    : 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                }`}>
+                  {isLocationDiscrepant ? (
+                    <>
+                      <AlertTriangle className="h-3 w-3 text-amber-400" />
+                      <span>{distanceDeviationKm} km Outside Site Boundary</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-400" />
+                      <span>Within Site Perimeter ({distanceDeviationKm} km)</span>
+                    </>
+                  )}
+                </span>
+              </div>
+
+              {/* Designated Site vs Captured Coordinates */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="p-2 rounded-lg bg-neutral-950/80 border border-neutral-800/80 space-y-0.5">
+                  <span className="text-[10px] font-mono uppercase text-neutral-500 block">
+                    Designated Project Site
+                  </span>
+                  <p className="text-neutral-200 font-medium truncate">
+                    {activeProject?.location.name || 'Site'}
+                  </p>
+                  <p className="text-[10px] font-mono text-neutral-400">
+                    Lat: {activeProject?.location.lat.toFixed(4)}, Lng: {activeProject?.location.lng.toFixed(4)}
+                  </p>
+                </div>
+
+                <div className="p-2 rounded-lg bg-neutral-950/80 border border-neutral-800/80 space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase text-neutral-500">
+                      Captured Coordinates
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomLat(activeProject?.location.lat || 20.5937);
+                          setCustomLng(activeProject?.location.lng || 78.9629);
+                        }}
+                        className="text-[9px] font-mono text-emerald-400 hover:underline"
+                        title="Reset to project site GPS"
+                      >
+                        Reset Site GPS
+                      </button>
+                      <span className="text-neutral-600">·</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomLat((activeProject?.location.lat || 20.5937) + 1.15);
+                          setCustomLng((activeProject?.location.lng || 78.9629) + 0.95);
+                        }}
+                        className="text-[9px] font-mono text-amber-400 hover:underline"
+                        title="Simulate media captured outside geofence boundary"
+                      >
+                        Simulate Divergence (+115km)
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={effectiveLat}
+                      onChange={(e) => setCustomLat(parseFloat(e.target.value) || 0)}
+                      className="w-full px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-neutral-200 focus:outline-none focus:border-emerald-500"
+                    />
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={effectiveLng}
+                      onChange={(e) => setCustomLng(parseFloat(e.target.value) || 0)}
+                      className="w-full px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-neutral-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Location Integrity Warning Banner if divergent */}
+              {isLocationDiscrepant && (
+                <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/40 flex items-start gap-2 text-xs text-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-amber-300">Location Integrity Warning Triggered</p>
+                    <p className="text-[11px] text-amber-300/80 leading-snug">
+                      Media coordinates deviate by {distanceDeviationKm} km from designated site perimeter ({activeProject?.location.name}). A 'Location Integrity Warning' will be permanently appended to the immutable cryptographic audit log and Trust Passport.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Automated AI Visual Tagging Trigger Section */}
+            <div className="p-3.5 rounded-xl border border-emerald-950/80 bg-emerald-950/20 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span className="text-xs font-semibold text-emerald-300">
+                    Automated Visual AI Tagging & Classification
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => selectedFiles[0] && runAiTaggingTrigger(selectedFiles[0])}
+                  disabled={selectedFiles.length === 0 || isAnalyzingAi}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-900 border border-neutral-700 hover:border-emerald-500 text-[11px] font-mono text-neutral-300 hover:text-emerald-300 disabled:opacity-40 transition-colors"
+                >
+                  {isAnalyzingAi ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />
+                  ) : (
+                    <Sparkles className="h-3 w-3 text-emerald-400" />
+                  )}
+                  <span>{isAnalyzingAi ? 'Analyzing...' : 'Trigger AI Auto-Tag'}</span>
+                </button>
+              </div>
+
+              {/* Status Message */}
+              {aiAnalysisStatus && (
+                <p className="text-[11px] text-emerald-300/90 font-mono bg-emerald-950/40 p-2 rounded-lg border border-emerald-900/60">
+                  {aiAnalysisStatus}
+                </p>
+              )}
+
+              {/* Visual Category Badges */}
+              {aiCategories.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 block">
+                    Detected Visual Categories:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {aiCategories.map((cat, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1"
+                      >
+                        <Check className="h-3 w-3 text-emerald-400" />
+                        <span>{cat}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Suggested Tag Chips */}
+              {aiSuggestedTags.length > 0 && (
+                <div className="space-y-1 pt-1">
+                  <span className="text-[10px] font-mono uppercase text-neutral-400 block">
+                    AI Suggested Tags (click to toggle):
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {aiSuggestedTags.map((tag, idx) => {
+                      const isActive = customTags.toLowerCase().includes(tag.toLowerCase());
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => toggleTagChip(tag)}
+                          className={`px-2 py-0.5 rounded text-[11px] font-mono transition-colors flex items-center gap-1 border ${
+                            isActive
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold'
+                              : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-neutral-200'
+                          }`}
+                        >
+                          {isActive ? <Check className="h-2.5 w-2.5 text-emerald-400" /> : <Plus className="h-2.5 w-2.5 text-neutral-500" />}
+                          <span>{tag}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Custom tags input */}
             <div>
               <label className="text-xs font-medium text-neutral-300 block mb-1">
-                Custom Tags (comma-separated, Cloudinary AI will also auto-tag)
+                Custom Tags & AI Identifiers (comma-separated)
               </label>
               <input
                 type="text"
                 value={customTags}
                 onChange={(e) => setCustomTags(e.target.value)}
-                placeholder="reforestation, soil test, community volunteers"
+                placeholder="reforestation, soil test, community volunteers, infrastructure"
                 className="w-full px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-800 text-xs text-neutral-200 focus:outline-none focus:border-emerald-500/50"
               />
             </div>

@@ -375,7 +375,7 @@ export const ImpactReportGenerator: React.FC<ImpactReportGeneratorProps> = ({
               Prepared by: {reportToDisplay.generatedBy}
             </p>
             <p className="text-neutral-500">
-              Verified through ImpactLens AI Media Intelligence Protocol (PS-02 Cloudinary)
+              Verified through ImpactLens AI Media Intelligence Protocol · Cloudinary Trust Engine
             </p>
           </div>
 

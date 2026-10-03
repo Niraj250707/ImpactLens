@@ -334,7 +334,7 @@ export const ProjectPdfExportModal: React.FC<ProjectPdfExportModalProps> = ({
                 Lead Coordinator: {project.leadCoordinator}
               </p>
               <p className="text-[10px] text-neutral-500">
-                ImpactLens Cryptographic Evidence Protocol · Problem Statement 02
+                ImpactLens Cryptographic Evidence Protocol · Certified Institutional Ledger
               </p>
             </div>
 

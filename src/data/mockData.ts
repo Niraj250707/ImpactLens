@@ -120,6 +120,32 @@ export const INITIAL_PROJECTS: Project[] = [
     evidenceScore: 84,
     tags: ['solar microgrid', 'coastal resilience', 'clean energy', 'cyclone shelter', 'sundarbans'],
   },
+  {
+    id: 'proj-005',
+    title: 'Deccan Dryland Watershed & Check Dam Initiative',
+    category: 'River & Water',
+    description: 'Constructing decentralized stone check dams and contour trenches across drought-prone rainfed farmland in northern Karnataka.',
+    location: {
+      name: 'Raichur Arid Basin',
+      state: 'Karnataka',
+      country: 'India',
+      lat: 16.2076,
+      lng: 77.3463,
+    },
+    status: 'active',
+    startDate: '2024-05-01',
+    targetMetric: {
+      label: 'Check Dams Constructed',
+      target: 8,
+      current: 2,
+      unit: 'dams',
+    },
+    donorOrGrant: 'Deccan Water Security Trust Grant #DW-2024-03',
+    coverImageUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb186156f?w=1200&auto=format&fit=crop&q=80',
+    leadCoordinator: 'Prakash Kulkarni (Watershed Civil Engineer)',
+    evidenceScore: 48,
+    tags: ['watershed', 'check dam', 'drought resilience', 'water harvesting', 'contour bunding'],
+  },
 ];
 
 export const INITIAL_MEDIA_ASSETS: MediaAsset[] = [

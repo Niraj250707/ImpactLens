@@ -212,6 +212,8 @@ export async function uploadFieldMedia(
     lng: number;
     tags: string[];
     user: { name: string; role: string };
+    locationIntegrityWarning?: boolean;
+    locationDiscrepancyKm?: number;
   }
 ): Promise<MediaAsset> {
   const sha256 = await computeFileSha256(file);
@@ -253,6 +255,30 @@ export async function uploadFieldMedia(
 
   const aiAnalysis = analyzeMediaWithAI(file.name, metadata.stage);
 
+  const auditChain = [
+    {
+      timestamp,
+      action: 'Field Ingestion & Hashing',
+      actor: `${metadata.user.name} (${metadata.user.role})`,
+      hashProof: `sha256:${sha256.substring(0, 12)}...`,
+    },
+    {
+      timestamp,
+      action: 'Cloudinary AI Auto-Tagging & Signal Detection',
+      actor: 'Cloudinary AI Intelligence Pipeline',
+      hashProof: 'cld:ai-verified',
+    }
+  ];
+
+  if (metadata.locationIntegrityWarning) {
+    auditChain.push({
+      timestamp,
+      action: `Location Integrity Warning: Captured GPS coordinates deviate by ${metadata.locationDiscrepancyKm || 0} km from designated project site perimeter`,
+      actor: 'ImpactLens Geofence Sentinel',
+      hashProof: 'warn:gps-discrepancy-flagged',
+    });
+  }
+
   const trustPassport: TrustPassport = {
     sha256Hash: sha256,
     originalFileName: file.name,
@@ -263,21 +289,10 @@ export async function uploadFieldMedia(
     cameraModel: 'Field Device (Exif Verified)',
     focalLength: '28mm eq.',
     isoSpeed: 100,
-    tamperProofStatus: 'verified',
-    auditChain: [
-      {
-        timestamp,
-        action: 'Field Ingestion & Hashing',
-        actor: `${metadata.user.name} (${metadata.user.role})`,
-        hashProof: `sha256:${sha256.substring(0, 12)}...`,
-      },
-      {
-        timestamp,
-        action: 'Cloudinary AI Auto-Tagging & Signal Detection',
-        actor: 'Cloudinary Track Sponsor AI Pipeline',
-        hashProof: 'cld:ai-verified',
-      }
-    ]
+    tamperProofStatus: metadata.locationIntegrityWarning ? 'flagged' : 'verified',
+    locationIntegrityWarning: metadata.locationIntegrityWarning,
+    locationDiscrepancyKm: metadata.locationDiscrepancyKm,
+    auditChain,
   };
 
   const assetId = `asset-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -303,6 +318,9 @@ export async function uploadFieldMedia(
     tags: Array.from(new Set([...metadata.tags, ...aiAnalysis.detectedObjects.map(o => o.name.toLowerCase())])),
     aiAnalysis,
     trustPassport,
+    locationIntegrityWarning: metadata.locationIntegrityWarning,
+    locationDiscrepancyKm: metadata.locationDiscrepancyKm,
+    verifiedIntegrity: !metadata.locationIntegrityWarning,
     transformations: {
       enhancedUrl: uploadedUrl,
       autoCroppedUrl: uploadedUrl,

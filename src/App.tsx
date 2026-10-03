@@ -38,6 +38,9 @@ import { CreateProjectModal } from './components/projects/CreateProjectModal';
 import { ProjectDetailView } from './components/projects/ProjectDetailView';
 import { IntegrityAuditSection } from './components/dashboard/IntegrityAuditSection';
 import { LoginPage } from './components/auth/LoginPage';
+import { StakeholderView } from './components/stakeholder/StakeholderView';
+import { EnvironmentalImpactSummaryWidget } from './components/dashboard/EnvironmentalImpactSummaryWidget';
+import { PriorityActionFeed } from './components/dashboard/PriorityActionFeed';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
@@ -59,7 +62,7 @@ export default function App() {
   const [pairs, setPairs] = useState<BeforeAfterPair[]>(INITIAL_BEFORE_AFTER_PAIRS);
   const [reports, setReports] = useState<ImpactReport[]>(INITIAL_REPORTS);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'media' | 'beforeafter' | 'reports'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'media' | 'beforeafter' | 'reports' | 'stakeholder'>('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [activePairIdForStudio, setActivePairIdForStudio] = useState<string | undefined>(undefined);
 
@@ -187,10 +190,10 @@ export default function App() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800">
-                    Code Cubicle 6.0 · Problem Statement 02
+                    Tier-1 Institutional Protocol
                   </span>
                   <span className="text-xs font-mono text-neutral-500">
-                    Sponsor: Cloudinary
+                    Engine: Cloudinary AI Media Intelligence
                   </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-100">
@@ -228,6 +231,18 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {/* Automated Priority Action Feed Notification System */}
+            <PriorityActionFeed
+              projects={updatedProjects}
+              assets={assets}
+              pairs={pairs}
+              onOpenUploadForProject={(projId) => handleOpenUploadForProject(projId)}
+              onSelectProject={(projId) => {
+                setSelectedProjectId(projId);
+                setActiveTab('projects');
+              }}
+            />
 
             {/* Core Quantitative Metrics Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -296,6 +311,12 @@ export default function App() {
               scoreData={portfolioScoreData}
               projectTitle="Portfolio Audit Overview (All Initiatives)"
               onTakeAction={() => handleOpenUploadForProject()}
+            />
+
+            {/* AI Environmental Impact Summary Widget */}
+            <EnvironmentalImpactSummaryWidget
+              assets={assets}
+              projects={updatedProjects}
             />
 
             {/* Cryptographic Integrity Audit Sentinel */}
@@ -409,10 +430,15 @@ export default function App() {
                 project={activeProject}
                 assets={assets}
                 pairs={pairs}
+                currentUser={currentUser}
                 onBack={() => setSelectedProjectId(null)}
                 onOpenUpload={(projId) => handleOpenUploadForProject(projId)}
                 onOpenBeforeAfter={(pairId) => handleOpenBeforeAfterForProject(pairId)}
                 onGenerateReport={(projId) => handleGenerateReportForProject(projId)}
+                onOpenStakeholderView={(projId) => {
+                  setSelectedProjectId(projId);
+                  setActiveTab('stakeholder');
+                }}
                 onUpdateAssets={(updated) => setAssets(updated)}
               />
             ) : (
@@ -514,6 +540,19 @@ export default function App() {
           />
         )}
 
+        {/* TAB 6: STAKEHOLDER & DONOR VIEW */}
+        {activeTab === 'stakeholder' && (
+          <StakeholderView
+            projects={updatedProjects}
+            assets={assets}
+            pairs={pairs}
+            selectedProjectId={selectedProjectId || undefined}
+            onSelectProject={(id) => setSelectedProjectId(id)}
+            onExitStakeholderView={() => setActiveTab('dashboard')}
+            onOpenBeforeAfterDetail={(pairId) => handleOpenBeforeAfterForProject(pairId)}
+          />
+        )}
+
       </main>
 
       {/* Global Modals */}
@@ -546,7 +585,7 @@ export default function App() {
       <footer className="mt-auto border-t border-neutral-900 bg-neutral-950 py-4 print:hidden">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-neutral-500">
           <p>
-            ImpactLens · Code Cubicle 6.0 Hackathon (Geek Room) · Problem Statement 02 · Cloudinary Track
+            ImpactLens Enterprise · AI-Powered Impact & Sustainability Media Intelligence Platform
           </p>
           <div className="flex items-center gap-4">
             <button

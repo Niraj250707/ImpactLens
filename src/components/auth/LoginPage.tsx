@@ -106,7 +106,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 Impact<span className="text-emerald-400">Lens</span>
               </span>
               <span className="hidden sm:inline-block ml-3 text-xs font-mono text-neutral-500 border-l border-neutral-800 pl-3">
-                Cloudinary Track Sponsor · Problem Statement 02
+                Powered by Cloudinary AI Media Intelligence
               </span>
             </div>
           </div>
@@ -126,7 +126,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           <div className="lg:col-span-5 space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-800/80 text-emerald-300 text-xs font-mono">
               <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Code Cubicle 6.0 Finalist</span>
+              <span>National Sustainability & Impact Intelligence</span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-100 leading-tight">
@@ -331,7 +331,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
       {/* Footer */}
       <footer className="border-t border-neutral-900 bg-neutral-950 px-6 py-4 text-center text-xs text-neutral-500 font-mono">
-        Code Cubicle 6.0 Hackathon by Geek Room · Problem Statement 02 · Cloudinary Track
+        ImpactLens Enterprise · AI-Powered Impact & Sustainability Media Intelligence Platform · Certified Verification Protocol
       </footer>
 
     </div>

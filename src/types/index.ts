@@ -49,6 +49,8 @@ export interface TrustPassport {
   focalLength: string;
   isoSpeed: number;
   tamperProofStatus: 'verified' | 'unaltered' | 'flagged';
+  locationIntegrityWarning?: boolean;
+  locationDiscrepancyKm?: number;
   auditChain: {
     timestamp: string;
     action: string;
@@ -96,6 +98,8 @@ export interface MediaAsset {
   lastVerificationAttemptAt?: string;
   geminiMatchScore?: number;
   geminiReasoning?: string;
+  locationIntegrityWarning?: boolean;
+  locationDiscrepancyKm?: number;
 }
 
 export interface BeforeAfterPair {
@@ -181,4 +185,37 @@ export interface CloudinaryConfig {
   uploadPreset: string;
   apiKey?: string;
   isCustomConfigured: boolean;
+}
+
+export interface StakeholderComment {
+  id: string;
+  projectId: string;
+  milestoneId: string;
+  milestoneTitle: string;
+  donorName: string;
+  donorOrganization: string;
+  donorRole: string;
+  content: string;
+  timestamp: string;
+  auditHash: string; // SHA-256 seal of comment payload
+  verdict: 'approved' | 'clarification_requested' | 'verified' | 'tranche_cleared';
+  isAudited: boolean;
+}
+
+export interface PriorityActionAlert {
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  type: 'low_evidence_score' | 'missed_milestone' | 'critical_gap';
+  severity: 'critical' | 'high' | 'medium';
+  title: string;
+  description: string;
+  currentScore?: number;
+  thresholdScore?: number;
+  missedMilestoneLabel?: string;
+  daysOverdue?: number;
+  suggestedAction: string;
+  actionLabel: string;
+  timestamp: string;
+  dismissed?: boolean;
 }

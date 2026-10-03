@@ -50,7 +50,7 @@ export async function generateProjectPdf(
 
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184); // slate-400
-  doc.text('Code Cubicle 6.0 · Problem Statement 02 · Cloudinary AI Track', margin, 20);
+  doc.text('ImpactLens National Sustainability & Impact Verification Protocol · Official Dossier', margin, 20);
 
   const dateStr = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
